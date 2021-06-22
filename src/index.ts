@@ -1,5 +1,5 @@
 import crossFetch, * as CrossFetch from 'cross-fetch'
-import { print } from 'graphql/language/printer'
+import { print, GraphQLSchema } from 'graphql'
 import createRequestBody from './createRequestBody'
 import { ClientError, GraphQLError, RequestDocument, Variables } from './types'
 import * as Dom from './types.dom'
@@ -33,11 +33,16 @@ const resolveHeaders = (headers: Dom.RequestInit['headers']): Record<string, str
  * todo
  */
 export class GraphQLClient {
-  private url: string
+  private url?: string
+  private schema?: GraphQLSchema
   private options: Dom.RequestInit
 
-  constructor(url: string, options?: Dom.RequestInit) {
-    this.url = url
+  constructor(urlOrSchema: string | GraphQLSchema, options: Dom.RequestInit = {}) {
+    if (typeof urlOrSchema === 'string') {
+      this.url = urlOrSchema
+    } else {
+      this.schema = urlOrSchema
+    }
     this.options = options || {}
   }
 
@@ -45,10 +50,9 @@ export class GraphQLClient {
     query: string,
     variables?: V,
     requestHeaders?: Dom.RequestInit['headers']
-  ): Promise<{ data?: T; extensions?: any; headers: Dom.Headers; status: number; }> {
+  ): Promise<{ data?: T; extensions?: any; headers: Dom.Headers; status: number }> {
     let { headers, fetch: localFetch = crossFetch, ...others } = this.options
     const body = createRequestBody(query, variables)
- 
 
     const response = await localFetch(this.url, {
       method: 'POST',
@@ -58,7 +62,7 @@ export class GraphQLClient {
         ...resolveHeaders(requestHeaders)
       },
       body,
-      ...others,
+      ...others
     })
 
     const result = await getResult(response)
@@ -80,7 +84,7 @@ export class GraphQLClient {
    */
   async request<T = any, V = Variables>(
     document: RequestDocument,
-    variables?: V, 
+    variables?: V,
     requestHeaders?: Dom.RequestInit['headers']
   ): Promise<T> {
     let { headers, fetch: localFetch = crossFetch, ...others } = this.options
@@ -95,7 +99,7 @@ export class GraphQLClient {
         ...resolveHeaders(requestHeaders)
       },
       body,
-      ...others,
+      ...others
     })
 
     const result = await getResult(response)
@@ -138,11 +142,11 @@ export class GraphQLClient {
  * todo
  */
 export async function rawRequest<T = any, V = Variables>(
-  url: string,
+  urlOrSchema: string | GraphQLSchema,
   query: string,
   variables?: V
-): Promise<{ data?: T; extensions?: any; headers: Dom.Headers; status: number; }> {
-  const client = new GraphQLClient(url)
+): Promise<{ data?: T; extensions?: any; headers: Dom.Headers; status: number }> {
+  const client = new GraphQLClient(urlOrSchema)
   return client.rawRequest<T, V>(query, variables)
 }
 
@@ -181,12 +185,12 @@ export async function rawRequest<T = any, V = Variables>(
  * ```
  */
 export async function request<T = any, V = Variables>(
-  url: string,
+  urlOrSchema: string | GraphQLSchema,
   document: RequestDocument,
   variables?: V,
   requestHeaders?: Dom.RequestInit['headers']
 ): Promise<T> {
-  const client = new GraphQLClient(url)
+  const client = new GraphQLClient(urlOrSchema)
   return client.request<T, V>(document, variables, requestHeaders)
 }
 
